@@ -5,9 +5,28 @@ NAME = "John Doe"
 
 # Shown on the launcher: one line is picked at random each time the menu is drawn.
 QUOTES = [
-    "The best camera is the one you have with you.",
-    "Every picture tells a story.",
-    "Life is a journey, not a destination.",
+    "How's it going?",
+    "What will it be today?",
+    "Looking good today!",
+    "Have a great day!",
+    "Enjoy your day!",
+    "What's up?",
+    "What's new?",
+    "What's on your mind?",
+    "Call me!",
+    "What viewing needs do we have today?",
+    "Ready to be served some raster?",
+    "Processing... please don't sneeze on me.",
+    "Does this frame make my pixels look big?",
+    "I've seen the back of this wall. It's boring.",
+    "I'm not a fan of the colour scheme.",
+    "Is it art yet, or do I keep trying?",
+    "I require more electrons.",
+    "Behold! A rectangle!",
+    "Maximum pixels achieved.",
+    "Stay hydrated, organic unit.",
+    "Warning! May contain images.",
+    "Picture this!"
 ]
 
 # WiFi credentials

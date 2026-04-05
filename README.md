@@ -4,6 +4,12 @@ Custom gallery for **Pimoroni Inky Frame**, aimed at 7.3 with **Raspberry Pi Pic
 
 Official Inky Frame guide: **[Getting started with Inky Frame](https://learn.pimoroni.com/article/getting-started-with-inky-frame)**.
 
+## Repository structure
+
+- **`inky-gallery-v1/`**: earlier offline-only experiment
+- **`inky-gallery-v2/`**: launcher with gallery offline/online modes
+- **`inky-frame-original/`**: reference copy of stock launcher-style files
+
 ---
 
 ## Flashing firmware with Raspberry Pi Imager
@@ -30,8 +36,7 @@ Wipe in case of corrupt filesystem, stuck `main.py`, or any odd behaviour.
 1. **Enter BOOTSEL**, copy the nuke UF2 onto the drive, wait for it to finish and the board to reconnect
 1. **Flash MicroPython** and restore your files
 
-## Repository structure
+## SD card
 
-- **`inky-gallery-v1/`**: earlier offline-only experiment
-- **`inky-gallery-v2/`**: launcher with gallery offline/online modes
-- **`inky-frame-original/`**: reference copy of stock launcher-style files
+**`[Errno 19] ENODEV`** means MicroPython cannot see the SD hardware: reseat the card, format as **FAT**, try another card (see [Pimoroni’s SD notes](https://learn.pimoroni.com/article/getting-started-with-inky-frame)).  
+`inky-gallery-v2` also **mounts the SD before Wi‑Fi starts** to avoid init-order problems on some **Pico 2 W** boards.

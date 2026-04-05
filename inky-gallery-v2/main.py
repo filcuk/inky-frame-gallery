@@ -91,6 +91,22 @@ def launcher():
         graphics.set_pen(WHITE)
         graphics.text("B. Online (GitHub sync) [UNAVAILABLE]", 45, HEIGHT - (265 + y_offset), 600, 3)
 
+    # Test items
+    graphics.set_pen(graphics.create_pen(200, 200, 200))
+    graphics.rectangle(30, HEIGHT - (220 + y_offset), WIDTH - 100, 50)
+    graphics.set_pen(BLACK)
+    graphics.text("C. Test Buttons & LEDs", 60, HEIGHT - (205 + y_offset), 600, 3)
+
+    graphics.set_pen(graphics.create_pen(200, 200, 200))
+    graphics.rectangle(30, HEIGHT - (160 + y_offset), WIDTH - 100, 50)
+    graphics.set_pen(BLACK)
+    graphics.text("D. Test WIFI & SD card", 60, HEIGHT - (145 + y_offset), 600, 3)
+
+    graphics.set_pen(graphics.create_pen(200, 200, 200))
+    graphics.rectangle(30, HEIGHT - (100 + y_offset), WIDTH - 100, 50)
+    graphics.set_pen(BLACK)
+    graphics.text("E. Test image", 60, HEIGHT - (85 + y_offset), 600, 3)
+
     ## Note
     graphics.set_pen(BLACK)
     note = "Hold A + E then press Reset to return here"
@@ -132,6 +148,11 @@ def launcher():
                 continue
             ih.inky_frame.button_b.led_off()
             ih.update_state("gallery_online")
+            time.sleep(0.5)
+            reset()
+        if _btn_read(ih.inky_frame.button_e):
+            log("Launcher: button E pressed")
+            ih.update_state("test_image")
             time.sleep(0.5)
             reset()
 

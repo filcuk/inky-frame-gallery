@@ -7,13 +7,14 @@ from machine import reset
 from picographics import PicoGraphics
 
 # Match your hardware / firmware (7.3" colour = Spectra).
-from picographics import DISPLAY_INKY_FRAME_SPECTRA_7 as DISPLAY
-# from picographics import DISPLAY_INKY_FRAME_7 as DISPLAY  # 7.3" mono
 
 # secrets.py on device:
 # WIFI_SSID = "..."
 # WIFI_PASSWORD = "..."
+from picographics import DISPLAY_INKY_FRAME_7 as DISPLAY
+# from picographics import DISPLAY_INKY_FRAME_SPECTRA_7 as DISPLAY  # Newer 2025 revision
 
+# Give USB time to initialise
 time.sleep(0.5)
 
 graphics = PicoGraphics(DISPLAY)

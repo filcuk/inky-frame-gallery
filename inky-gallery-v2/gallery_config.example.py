@@ -17,6 +17,9 @@ WIFI_PASSWORD = "your-wifi-password"
 # Minutes between slideshow advances (stock launcher calls ih.sleep with this).
 SLIDESHOW_INTERVAL_MINUTES = 60
 
+# Make option selection 'permanent'; require user to reset to launcher
+PERMANENT_SELECTION = False
+
 # Where JPEGs live on the SD card (created automatically when possible).
 GALLERY_SD_FOLDER = "/sd/gallery"
 

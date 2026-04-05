@@ -1,0 +1,165 @@
+import gc
+import os
+import time
+
+import ujson
+from urllib import urequest
+
+import gallery_common as gc_common
+
+
+def _encode_path_segment(seg):
+    r = []
+    for c in seg:
+        if ("a" <= c <= "z") or ("A" <= c <= "Z") or ("0" <= c <= "9") or c in "-._":
+            r.append(c)
+        elif c == " ":
+            r.append("%20")
+        else:
+            r.append("%%%02X" % ord(c))
+    return "".join(r)
+
+
+def _contents_base_url(owner, repo, path, ref):
+    base = "https://api.github.com/repos/%s/%s" % (owner, repo)
+    path = path.strip("/")
+    if path:
+        parts = [_encode_path_segment(p) for p in path.split("/") if p]
+        return base + "/contents/" + "/".join(parts) + "?ref=" + ref
+    return base + "/contents?ref=" + ref
+
+
+def _headers_list(pat):
+    return {
+        "User-Agent": "inky-gallery-v2",
+        "Authorization": "Bearer " + pat,
+        "Accept": "application/vnd.github+json",
+    }
+
+
+def _headers_raw(pat):
+    return {
+        "User-Agent": "inky-gallery-v2",
+        "Authorization": "Bearer " + pat,
+        "Accept": "application/vnd.github.v3.raw",
+    }
+
+
+def _stream_to_file(socket, dest_path):
+    with open(dest_path, "wb") as f:
+        buf = bytearray(1024)
+        try:
+            while True:
+                n = socket.readinto(buf)
+                if n == 0:
+                    break
+                f.write(memoryview(buf)[:n])
+        except AttributeError:
+            while True:
+                chunk = socket.read(1024)
+                if not chunk:
+                    break
+                f.write(chunk)
+        del buf
+    socket.close()
+    gc.collect()
+
+
+def _file_api_url(owner, repo, file_path, ref):
+    base = "https://api.github.com/repos/%s/%s" % (owner, repo)
+    parts = [_encode_path_segment(p) for p in file_path.split("/") if p]
+    return base + "/contents/" + "/".join(parts) + "?ref=" + ref
+
+
+def sync_from_github(cfg):
+    """Download JPEGs from cfg's GitHub folder into GALLERY_SD_FOLDER. Returns error string or None."""
+    pat = getattr(cfg, "GITHUB_PAT", "") or ""
+    if not pat.strip():
+        return "GITHUB_PAT missing"
+
+    owner = cfg.GITHUB_OWNER
+    repo = cfg.GITHUB_REPO
+    branch = getattr(cfg, "GITHUB_BRANCH", "main")
+    folder = getattr(cfg, "GITHUB_PATH", "") or ""
+
+    gc_common.ensure_sd()
+    dest_root = cfg.GALLERY_SD_FOLDER.rstrip("/")
+    gc_common.ensure_dir(dest_root)
+
+    list_url = _contents_base_url(owner, repo, folder, branch)
+    try:
+        sock = urequest.urlopen(list_url, headers=_headers_list(pat))
+        body = sock.read()
+        sock.close()
+    except OSError as e:
+        gc.collect()
+        return "GitHub list failed: %s" % e
+
+    try:
+        data = ujson.loads(body)
+    except ValueError:
+        gc.collect()
+        return "Bad JSON from GitHub"
+
+    del body
+    gc.collect()
+
+    if isinstance(data, dict) and data.get("type") == "file":
+        entries = [data]
+    elif isinstance(data, list):
+        entries = data
+    else:
+        return "Unexpected GitHub response"
+
+    folder_clean = folder.strip("/")
+
+    for ent in entries:
+        if ent.get("type") != "file":
+            continue
+        name = ent.get("name", "")
+        low = name.lower()
+        if not (low.endswith(".jpg") or low.endswith(".jpeg")):
+            continue
+        rel_path = ent.get("path")
+        if not rel_path:
+            rel_path = (folder_clean + "/" + name) if folder_clean else name
+        remote_size = ent.get("size")
+        dest_path = dest_root + "/" + name
+        try:
+            st = os.stat(dest_path)
+            if remote_size is not None and st[6] == remote_size:
+                continue
+        except OSError:
+            pass
+
+        file_url = _file_api_url(owner, repo, rel_path, branch)
+        try:
+            fsock = urequest.urlopen(file_url, headers=_headers_raw(pat))
+            _stream_to_file(fsock, dest_path)
+        except OSError as e:
+            gc.collect()
+            return "Download failed %s: %s" % (name, e)
+        gc.collect()
+
+    try:
+        with open(dest_root + "/.last_github_sync", "w") as f:
+            f.write(str(int(time.time())))
+    except OSError:
+        pass
+
+    gc.collect()
+    return None
+
+
+def should_sync(cfg):
+    interval_s = int(getattr(cfg, "GITHUB_SYNC_INTERVAL_MINUTES", 360)) * 60
+    marker = cfg.GALLERY_SD_FOLDER.rstrip("/") + "/.last_github_sync"
+    try:
+        with open(marker, "r") as f:
+            last = int(f.read())
+    except (OSError, ValueError):
+        last = 0
+    now = time.time()
+    if now < 1e9:
+        return True
+    return (now - last) >= interval_s

@@ -30,13 +30,19 @@ def update():
     gc.collect()
     cfg = g.get_config()
 
+    if not g.ensure_sd():
+        detail = g.sd_mount_error() or ""
+        _sync_note = "SD: %s" % g.friendly_sd_message(detail)
+        _files = []
+        _status = "SD card not available"
+        return
+
     if _wifi_ok() and getattr(cfg, "GITHUB_PAT", "") and gh.should_sync(cfg):
         err = gh.sync_from_github(cfg)
         _sync_note = "" if err is None else err
     elif not getattr(cfg, "GITHUB_PAT", ""):
         _sync_note = "Set GITHUB_PAT in gallery_config.py"
 
-    g.ensure_sd()
     g.ensure_dir(cfg.GALLERY_SD_FOLDER)
     _files = g.list_jpegs(cfg.GALLERY_SD_FOLDER)
     if not _files:
@@ -48,9 +54,13 @@ def update():
 
 
 def draw():
+    global _files, _sync_note, _status
     if not _files:
         lines = ["Online gallery", _sync_note or _status or "No images"]
         g.draw_status(graphics, WIDTH, HEIGHT, lines)
         return
     path = _files[_idx]
-    g.draw_jpeg(graphics, WIDTH, HEIGHT, path)
+    if not g.draw_jpeg(graphics, WIDTH, HEIGHT, path):
+        _files = []
+        _sync_note = _sync_note or "SD read failed (readblocks)"
+        _status = "Will retry mount next cycle"

@@ -20,7 +20,10 @@ def update():
     global _files, _idx, _status
     gc.collect()
     cfg = g.get_config()
-    g.ensure_sd()
+    if not g.ensure_sd():
+        _status = "SD: " + g.friendly_sd_message(g.sd_mount_error() or "")
+        _files = []
+        return
     g.ensure_dir(cfg.GALLERY_SD_FOLDER)
     _files = g.list_jpegs(cfg.GALLERY_SD_FOLDER)
     if not _files:
@@ -31,8 +34,11 @@ def update():
 
 
 def draw():
+    global _files, _status
     if not _files:
         g.draw_status(graphics, WIDTH, HEIGHT, ["Offline gallery", _status or "No images"])
         return
     path = _files[_idx]
-    g.draw_jpeg(graphics, WIDTH, HEIGHT, path)
+    if not g.draw_jpeg(graphics, WIDTH, HEIGHT, path):
+        _files = []
+        _status = "SD read failed — retrying"

@@ -82,7 +82,9 @@ def sync_from_github(cfg):
     branch = getattr(cfg, "GITHUB_BRANCH", "main")
     folder = getattr(cfg, "GITHUB_PATH", "") or ""
 
-    gc_common.ensure_sd()
+    if not gc_common.ensure_sd():
+        return "SD: %s" % gc_common.friendly_sd_message(gc_common.sd_mount_error() or "")
+
     dest_root = cfg.GALLERY_SD_FOLDER.rstrip("/")
     gc_common.ensure_dir(dest_root)
 

@@ -3,6 +3,8 @@ import math
 import os
 import time
 
+from gallery_log import log
+
 import inky_frame
 import network
 from machine import PWM, Pin, Timer
@@ -41,24 +43,39 @@ network_led_pulse_speed_hz = 1
 
 def network_led_callback(_t):
     # updates the network led brightness based on a sinusoid seeded by the current time
-    brightness = (math.sin(time.ticks_ms() * math.pi * 2 / (1000 / network_led_pulse_speed_hz)) * 40) + 60
-    value = int(pow(brightness / 100.0, 2.8) * 65535.0 + 0.5)
-    network_led_pwm.duty_u16(value)
+    try:
+        brightness = (math.sin(time.ticks_ms() * math.pi * 2 / (1000 / network_led_pulse_speed_hz)) * 40) + 60
+        value = int(pow(brightness / 100.0, 2.8) * 65535.0 + 0.5)
+        network_led_pwm.duty_u16(value)
+    except Exception:
+        pass
 
 
 # set the network led into pulsing mode
 def pulse_network_led(speed_hz=1):
     global network_led_timer, network_led_pulse_speed_hz
     network_led_pulse_speed_hz = speed_hz
-    network_led_timer.deinit()
-    network_led_timer.init(period=50, mode=Timer.PERIODIC, callback=network_led_callback)
+    try:
+        network_led_timer.deinit()
+    except Exception:
+        pass
+    try:
+        network_led_timer.init(period=50, mode=Timer.PERIODIC, callback=network_led_callback)
+    except Exception as e:
+        log("pulse_network_led:", e)
 
 
 # turn off the network led and disable any pulsing animation that's running
 def stop_network_led():
     global network_led_timer
-    network_led_timer.deinit()
-    network_led_pwm.duty_u16(0)
+    try:
+        network_led_timer.deinit()
+    except Exception:
+        pass
+    try:
+        network_led_pwm.duty_u16(0)
+    except Exception:
+        pass
 
 
 def sleep(t):
@@ -85,32 +102,73 @@ def clear_button_leds():
 
 
 def network_connect(SSID, PSK):
-    # Enable the Wireless
-    wlan = network.WLAN(network.STA_IF)
-    wlan.active(True)
+    """Bring up STA and connect. Returns True if wlan.status() == 3. Does not raise."""
+    try:
+        wlan = network.WLAN(network.STA_IF)
+        try:
+            wlan.active(True)
+        except OSError as e:
+            log("WiFi active failed:", e)
+            return False
 
-    # Number of attempts to make before timeout
-    max_wait = 10
+        max_wait = 10
+        pulse_network_led()
+        try:
+            wlan.config(pm=0xA11140)  # Turn WiFi power saving off for some slow APs
+        except OSError:
+            pass
+        try:
+            wlan.connect(str(SSID), str(PSK))
+        except OSError as e:
+            stop_network_led()
+            try:
+                led_warn.on()
+            except Exception:
+                pass
+            log("WiFi connect failed:", e)
+            return False
 
-    # Sets the Wireless LED pulsing and attempts to connect to your local network.
-    pulse_network_led()
-    wlan.config(pm=0xa11140)  # Turn WiFi power saving off for some slow APs
-    wlan.connect(SSID, PSK)
+        while max_wait > 0:
+            try:
+                st = wlan.status()
+            except OSError:
+                break
+            if st < 0 or st >= 3:
+                break
+            max_wait -= 1
+            log("waiting for connection...")
+            try:
+                time.sleep(1)
+            except OSError as e:
+                log("WiFi wait sleep:", e)
+                break
 
-    while max_wait > 0:
-        if wlan.status() < 0 or wlan.status() >= 3:
-            break
-        max_wait -= 1
-        print("waiting for connection...")
-        time.sleep(1)
-
-    stop_network_led()
-    network_led_pwm.duty_u16(30000)
-
-    # Handle connection error. Switches the Warn LED on.
-    if wlan.status() != 3:
         stop_network_led()
-        led_warn.on()
+        try:
+            network_led_pwm.duty_u16(30000)
+        except Exception:
+            pass
+
+        try:
+            ok = wlan.status() == 3
+        except OSError:
+            ok = False
+        if not ok:
+            stop_network_led()
+            try:
+                led_warn.on()
+            except Exception:
+                pass
+            return False
+        return True
+    except Exception as e:
+        log("WiFi unexpected:", type(e).__name__, e)
+        stop_network_led()
+        try:
+            led_warn.on()
+        except Exception:
+            pass
+        return False
 
 
 state = {"run": None}
@@ -140,6 +198,21 @@ def load_state():
     data = json.loads(open("/state.json", "r").read())
     if type(data) is dict:
         state = data
+    
+    try:
+        from gallery_config import PERMANENT_SELECTION
+
+        if PERMANENT_SELECTION is not None and PERMANENT_SELECTION != "":
+            permanent_selection = PERMANENT_SELECTION
+        else:
+            log("Unable to load PERMANENT_SELECTION from gallery_config.py; defaulting to 'False'")
+            permanent_selection = False
+    except ImportError:
+        log("Unable to load PERMANENT_SELECTION from gallery_config.py; defaulting to 'False'")
+        permanent_selection = False
+    
+    if not permanent_selection:
+        clear_state()
 
 
 def update_state(running):
@@ -151,5 +224,5 @@ def update_state(running):
 def launch_app(app_name):
     global app
     app = __import__(app_name)
-    print(app)
+    log(app)
     update_state(app_name)
